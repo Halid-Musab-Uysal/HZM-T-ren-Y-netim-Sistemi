@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HZM - PROJEKSİYON v8.8.5 FINAL</title>
+    <style>
+        body { 
+            background: #000; 
+            margin: 0; 
+            overflow: hidden; 
+            height: 100vh; 
+            color: #fff; 
+            font-family: 'Segoe UI', sans-serif; 
+        }
+        
+        .info-bar { 
+            height: 40px; background: #000; display: flex; 
+            justify-content: space-between; align-items: center; 
+            padding: 0 20px; font-size: 14px; border-bottom: 1px solid #1a1a1a; 
+            z-index: 100; position: relative; 
+        }
+
+        .media-container { 
+            height: calc(100vh - 40px); display: flex; 
+            justify-content: center; align-items: center; 
+            position: relative; background: #000; 
+        }
+
+        video, img { 
+            position: absolute; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: fill; 
+            opacity: 0; 
+            transition: opacity 0.4s ease-in-out; 
+            background: #000;
+            z-index: 1;
+        }
+        
+        #dimmer { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: black; pointer-events: none; z-index: 9999; 
+            opacity: 0; transition: opacity 0.1s linear; 
+        }
+    </style>
+</head>
+<body>
+    <div id="dimmer"></div>
+    
+    <div class="info-bar">
+        <div style="font-weight: bold;">BATTALGAZİ MESLEKİ ve TEKNİK ANADOLU LİSESİ</div>
+        <div style="opacity: 0.8; letter-spacing: 1px;">HZM SOFTWARE v8.8.5</div>
+    </div>
+
+    <div class="media-container">
+        <video id="vPlayer" preload="auto" playsinline></video> 
+        <img id="iPlayer">
+        <audio id="a_vis_a"></audio>
+        <audio id="a_vis_b"></audio>
+        <audio id="a_vis_c"></audio>
+        <audio id="a_vis_aux"></audio>
+    </div>
+
+    <script>
+        const bc = new BroadcastChannel('hzm_toren_channel');
+        const v = document.getElementById('vPlayer'), 
+              img = document.getElementById('iPlayer'), 
+              dim = document.getElementById('dimmer');
+        
+        const pls = { 
+            vis_video: v, 
+            vis_a: document.getElementById('a_vis_a'), 
+            vis_b: document.getElementById('a_vis_b'), 
+            vis_c: document.getElementById('a_vis_c'), 
+            vis_aux: document.getElementById('a_vis_aux') 
+        };
+
+        window.onload = () => { dim.style.opacity = 0; };
+
+        bc.onmessage = (ev) => {
+            const { action, type, src, channel, command, value } = ev.data;
+
+            if (command === 'BRIGHTNESS') { 
+                let val = parseFloat(value);
+                if (!isNaN(val)) {
+                    dim.style.opacity = Math.max(0, Math.min(1, 1 - val)).toFixed(2);
+                }
+                return; 
+            }
+
+            const t = pls[channel];
+
+            if (action === 'LOAD') {
+                if (type === 'image') {
+                    // Videoyu arka plana at ve durdur
+                    v.style.opacity = 0;
+                    v.style.zIndex = 1;
+                    v.pause();
+                    
+                    // Resmi ön plana al ve yükle
+                    img.src = src;
+                    img.style.zIndex = 2;
+                    img.onload = () => { 
+                        img.style.opacity = 1; 
+                    };
+                } 
+                else if (type === 'video') {
+                    // Resmi arka plana at
+                    img.style.opacity = 0;
+                    img.style.zIndex = 1;
+
+                    // Videoyu ön plana al ve oynat
+                    v.src = src;
+                    v.style.zIndex = 2;
+                    v.load();
+                    v.oncanplay = () => {
+                        v.play().then(() => {
+                            v.style.opacity = 1;
+                        }).catch(() => {
+                            v.style.opacity = 1;
+                        });
+                    };
+                } 
+                else if (t) {
+                    t.src = src;
+                    t.pause();
+                    t.currentTime = 0;
+                }
+            }
+
+            if (action === 'PLAY') { 
+                if (type === 'image') {
+                    // EKLENEN KISIM: Resim oynatılıyorsa arka planda kalmış olabilecek videoyu zorla durdur
+                    v.pause();
+                    img.style.opacity = 1;
+                } else if (t) {
+                    t.play();
+                    if(type === 'video' || channel === 'vis_video') {
+                        v.style.opacity = 1;
+                    }
+                }
+            }
+            
+            if (action === 'PAUSE' || action === 'STOP') { 
+                if (type === 'image') {
+                    if (action === 'STOP') img.style.opacity = 0;
+                } 
+                // EKLENEN KISIM: Sadece video veya ses oynatılıyorsa medya player komutlarını işle
+                else if (t) { 
+                    t.pause(); 
+                    if(action === 'STOP') {
+                        t.currentTime = 0;
+                        if(type === 'video' || channel === 'vis_video') v.style.opacity = 0;
+                    }
+                } 
+            }
+
+            if (action === 'CMD_EX' && t && type !== 'image') {
+                if (command === 'VOLUME') t.volume = value;
+                if (command === 'SEEK') t.currentTime += value;
+                if (command === 'LOOP') t.loop = value;
+                if (command === 'SEEK_P') t.currentTime = t.duration * value;
+            }
+        };
+
+        v.ontimeupdate = () => {
+            // Sadece video aktifken geri bildirim gönder
+            if (v.duration && v.style.zIndex == "2") {
+                bc.postMessage({ action: 'V_STAT', c: v.currentTime, t: v.duration, p: v.currentTime / v.duration });
+            }
+        };
+    </script>
+</body>
+</html>

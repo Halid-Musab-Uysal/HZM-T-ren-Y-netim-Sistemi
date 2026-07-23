@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>HZM Tören Kontrol - Advanced v8.6.5</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+    :root { 
+        --bg: #0a0b0d; 
+        --panel-bg: rgba(255, 255, 255, 0.02);
+        --border: rgba(255, 255, 255, 0.08);
+        --accent: #407fff; 
+        --text: #aeb4be; 
+        --dim: #5c626e; 
+        --led-on: #2ecc71; 
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; cursor: default; }
+    
+    body { 
+        background-color: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; 
+        height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+        background-image: linear-gradient(to bottom, rgba(10,11,13,0.85), rgba(10,11,13,0.95)), url('static/arka_plan.jpeg');
+        background-size: cover; background-position: center;
+    }
+    
+    .top-bar { height: 30px; background: rgba(0, 0, 0, 0.6); display: flex; justify-content: space-between; align-items: center; padding: 0 15px; font-size: 11px; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; backdrop-filter: blur(5px); }
+    
+    .wrapper { 
+        flex: 1; padding: 12px; display: grid; 
+        grid-template-areas: 
+            "video video v-control" 
+            "resim resim independent" 
+            "mix command independent" 
+            "mix hzm hzm"; 
+        grid-template-columns: 1fr 1fr 350px; 
+        grid-template-rows: auto auto 1fr auto; 
+        gap: 10px; min-height: 0; 
+    }
+    
+    .panel { 
+        background: var(--panel-bg); 
+        border: 1px solid var(--border); 
+        border-radius: 6px; 
+        padding: 10px; 
+        display: flex; 
+        flex-direction: column; 
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); 
+        backdrop-filter: blur(0px); 
+        -webkit-backdrop-filter: blur(0px); 
+        transition: all 0.3s ease;
+    }
+    
+    .panel-focus { 
+        border-color: var(--accent) !important; 
+        box-shadow: 0 0 15px rgba(64, 127, 255, 0.2) !important; 
+        background: rgba(64, 127, 255, 0.05); 
+    }
+
+    .mod-indicator { background: rgba(64, 127, 255, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 11px; font-weight: bold; text-align: center; padding: 5px; margin-bottom: 10px; border-radius: 4px; letter-spacing: 1px; }
+
+    .header { font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+    
+    .grid-area { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; overflow-y: auto; flex: 1; }
+    
+    .grid-item { 
+        background: rgba(255, 255, 255, 0.03); 
+        border: 1px solid var(--border); 
+        border-radius: 3px; 
+        padding: 8px 4px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        cursor: pointer; 
+        min-height: 40px; 
+        transition: 0.2s; 
+    }
+    
+    .grid-item.active { border-color: var(--accent); background: rgba(64,127,255,0.15); }
+    .grid-item span { font-size: 9px; color: #fff; word-break: break-all; }
+
+    .btn-group { display: flex; gap: 4px; align-items: center; }
+    .btn { background: rgba(45, 51, 59, 0.5); border: 1px solid #000; color: var(--text); width: 36px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 9px; cursor: pointer; transition: 0.2s; }
+    .btn:hover { background: rgba(64, 127, 255, 0.2); }
+    .btn.active { color: var(--accent); border-color: var(--accent); background: rgba(64, 127, 255, 0.1); }
+    
+    .vol-wrapper { display: flex; align-items: center; gap: 6px; margin-top: 5px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 2px; }
+    .vol-slider { flex: 1; -webkit-appearance: none; height: 2px; background: #333; outline: none; }
+    .vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+
+    .led { width: 6px; height: 6px; border-radius: 50%; border: 1px solid #333; margin-left: 5px; display: inline-block; }
+    .led.green { background-color: var(--led-on); box-shadow: 0 0 8px var(--led-on); }
+    
+    .vis-container { height: 18px; display: flex; align-items: flex-end; gap: 1px; background: rgba(0,0,0,0.4); padding: 2px; margin-bottom: 5px; }
+    .bar { flex: 1; background: var(--accent); height: 5%; transition: height 0.1s; }
+    
+    .select-btn { background: rgba(28, 31, 36, 0.6); border: 1px solid var(--border); color: var(--dim); font-size: 9px; padding: 6px; text-align: center; margin-top: 5px; cursor: pointer; border-radius: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    
+    .accordion-content { display: none; margin-top: 5px; background: rgba(0,0,0,0.7); padding: 5px; overflow-y: auto; max-height: 120px; border: 1px solid #222; backdrop-filter: blur(5px); } 
+    .accordion-content.show { display: block; }
+    
+    .timer-display { font-family: 'Consolas', monospace; font-size: 30px; color: #fff; text-align: center; margin: 10px 0; }
+    .t-btn { flex: 1; padding: 10px; font-size: 10px; border: 1px solid #333; background: rgba(28, 31, 36, 0.6); color: #fff; cursor: pointer; font-weight: bold; }
+    
+    .hzm-range { -webkit-appearance: none; width: 100%; height: 2px; background: #333; outline: none; margin-top: 5px; }
+    .hzm-range::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: var(--accent); cursor: pointer; border-radius: 50%; }
+    
+    .hzm-progress { width: 100%; height: 4px; background: rgba(0, 0, 0, 0.5); cursor: pointer; border-radius: 2px; margin-top: 5px; }
+    .hzm-progress-fill { height: 100%; background: var(--accent); width: 0%; }
+    
+    #flow-container { flex: 1; overflow-y: auto; margin-top: 5px; }
+    .flow-item { background: rgba(255, 255, 255, 0.02); padding: 8px; font-size: 10px; border-left: 3px solid var(--dim); margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .flow-item.active { border-left-color: var(--accent); background: rgba(64,127,255,0.1); }
+    
+    .hzm-logo { font-size: 9px; color: rgba(174, 180, 190, 0.3); font-weight: bold; letter-spacing: 2px; padding: 5px; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+    <div><i class="fas fa-bars" style="margin-right:8px;"></i> TÖREN KONTROL SİSTEMİ v8.6.5</div>
+    <div id="main-clock" style="font-family:monospace; font-size:12px;">00:00:00</div>
+</header>
+
+<div class="wrapper">
+    <div class="panel" style="grid-area: video;">
+        <div class="header"><i class="fas fa-video" style="margin-right:5px;"></i> VIDEO ASSETS</div>
+        <div class="grid-area" id="video-list"></div>
+    </div>
+
+    <div class="panel" style="grid-area: resim;">
+        <div class="header"><i class="fas fa-image" style="margin-right:5px;"></i> PHOTO SLOTS</div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 8px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+            <input type="file" id="pptx-upload" accept=".pptx" style="display: none;" onchange="uploadPPTX()">
+            <button onclick="document.getElementById('pptx-upload').click()" style="background: var(--bg); color: var(--accent); border: 1px solid var(--border); padding: 6px 10px; border-radius: 3px; font-size: 9px; transition: 0.3s; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <i class="fas fa-file-powerpoint"></i> PPTX YÜKLE
+            </button>
+            <span id="upload-status" style="font-size: 9px; color: var(--text);"></span>
+        </div>
+
+        <div class="grid-area" id="image-list"></div>
+    </div>
+
+    <div class="panel" style="grid-area: mix;">
+        <div class="header"><i class="fas fa-sliders-h" style="margin-right:5px;"></i> MIX CHANNELS</div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 9px; color: var(--accent);">CH-A <span class="led" id="led-vis_a"></span></div>
+            <div class="vis-container" id="vis_a"></div>
+            <div class="btn-group">
+                <div class="btn" id="play-vis_a" onclick="chControl(this, 'vis_a', 'audio', 'PLAY')"><i class="fas fa-play"></i></div>
+                <div class="btn active" id="stop-vis_a" onclick="chControl(this, 'vis_a', 'audio', 'STOP')"><i class="fas fa-stop"></i></div>
+                <div class="btn" onclick="sendExCmd('vis_a', 'SEEK', -5)">-5s</div>
+                <div class="btn" onclick="sendExCmd('vis_a', 'SEEK', 5)">+5s</div>
+                <div class="btn" id="loop-vis_a" onclick="toggleLoopEx('vis_a')">DNG</div>
+            </div>
+            <div class="vol-wrapper"><input type="range" class="vol-slider" min="0" max="100" value="100" oninput="sendExCmd('vis_a', 'VOLUME', this.value/100)"></div>
+            <div class="select-btn" id="label-vis_a" onclick="toggleAcc('acc-a')">SES SEÇ (A)</div>
+            <div id="acc-a" class="accordion-content"></div>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 9px; color: var(--accent);">CH-B <span class="led" id="led-vis_b"></span></div>
+            <div class="vis-container" id="vis_b"></div>
+            <div class="btn-group">
+                <div class="btn" id="play-vis_b" onclick="chControl(this, 'vis_b', 'audio', 'PLAY')"><i class="fas fa-play"></i></div>
+                <div class="btn active" id="stop-vis_b" onclick="chControl(this, 'vis_b', 'audio', 'STOP')"><i class="fas fa-stop"></i></div>
+                <div class="btn" onclick="sendExCmd('vis_b', 'SEEK', -5)">-5s</div>
+                <div class="btn" onclick="sendExCmd('vis_b', 'SEEK', 5)">+5s</div>
+                <div class="btn" id="loop-vis_b" onclick="toggleLoopEx('vis_b')">DNG</div>
+            </div>
+            <div class="vol-wrapper"><input type="range" class="vol-slider" min="0" max="100" value="100" oninput="sendExCmd('vis_b', 'VOLUME', this.value/100)"></div>
+            <div class="select-btn" id="label-vis_b" onclick="toggleAcc('acc-b')">SES SEÇ (B)</div>
+            <div id="acc-b" class="accordion-content"></div>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 9px; color: var(--accent);">CH-C <span class="led" id="led-vis_c"></span></div>
+            <div class="vis-container" id="vis_c"></div>
+            <div class="btn-group">
+                <div class="btn" id="play-vis_c" onclick="chControl(this, 'vis_c', 'audio', 'PLAY')"><i class="fas fa-play"></i></div>
+                <div class="btn active" id="stop-vis_c" onclick="chControl(this, 'vis_c', 'audio', 'STOP')"><i class="fas fa-stop"></i></div>
+                <div class="btn" id="loop-vis_c" onclick="toggleLoopEx('vis_c')">DNG</div>
+            </div>
+            <div class="vol-wrapper"><input type="range" class="vol-slider" min="0" max="100" value="100" oninput="sendExCmd('vis_c', 'VOLUME', this.value/100)"></div>
+            <div class="select-btn" id="label-vis_c" onclick="toggleAcc('acc-c')">SES SEÇ (C)</div>
+            <div id="acc-c" class="accordion-content"></div>
+        </div>
+    </div>
+
+    <div class="panel" style="grid-area: command;">
+        <div class="header"><i class="fas fa-list-ol" style="margin-right:5px;"></i> FLOW CONTROL</div>
+        <div class="mod-indicator" id="mod-status">MOD: VİDEO</div>
+        <div class="timer-display" id="main-timer">00:00:00</div>
+        <div id="timer-controls">
+            <button class="t-btn" style="width:100%; border-color:#2ecc71; color:#2ecc71" id="timer-main-btn" onclick="timerControl('START')">
+                <i class="fas fa-play-circle" style="margin-right:5px;"></i> TÖRENİ BAŞLAT
+            </button>
+        </div>
+        <div id="flow-container"></div>
+        <input type="text" id="flow-input" placeholder="+ Madde ekle..." onkeypress="if(event.key === 'Enter') addFlowItem()" style="width:100%; background:#000; border:1px solid #333; color:#fff; padding:8px; font-size:10px; margin-top:5px; border-radius:3px;">
+    </div>
+
+    <div class="panel" style="grid-area: independent;">
+        <div class="header"><i class="fas fa-headphones" style="margin-right:5px;"></i> AUX (AUTO-PLAY)</div>
+        <div class="vis-container" id="vis_aux"></div>
+        <div class="btn-group">
+            <div class="btn" id="play-vis_aux" onclick="chControl(this, 'vis_aux', 'audio', 'PLAY')"><i class="fas fa-play"></i></div>
+            <div class="btn active" id="stop-vis_aux" onclick="chControl(this, 'vis_aux', 'audio', 'STOP')"><i class="fas fa-stop"></i></div>
+            <div class="btn" onclick="sendExCmd('vis_aux', 'SEEK', -5)">-5s</div>
+            <div class="btn" onclick="sendExCmd('vis_aux', 'SEEK', 5)">+5s</div>
+            <div class="btn" id="loop-vis_aux" onclick="toggleLoopEx('vis_aux')">DNG</div>
+        </div>
+        <div class="vol-wrapper"><input type="range" class="vol-slider" min="0" max="100" value="100" oninput="sendExCmd('vis_aux', 'VOLUME', this.value/100)"></div>
+        <div id="aux-list" style="flex:1; overflow-y:auto; margin-top:10px; border-top: 1px solid #1a1a1a;"></div>
+    </div>
+
+    <div class="panel" style="grid-area: v-control;">
+        <div class="header"><i class="fas fa-terminal" style="margin-right:5px;"></i> VIDEO CMD <span class="led" id="led-vis_video"></span></div>
+        <div class="vis-container" id="vis_video"></div>
+        <div class="btn-group">
+            <div class="btn" id="play-vis_video" onclick="chControl(this, 'vis_video', 'video', 'PLAY')"><i class="fas fa-play"></i></div>
+            <div class="btn active" id="stop-vis_video" onclick="chControl(this, 'vis_video', 'video', 'STOP')"><i class="fas fa-stop"></i></div>
+            <div class="btn" onclick="sendExCmd('vis_video', 'SEEK', -5)">-5s</div>
+            <div class="btn" onclick="sendExCmd('vis_video', 'SEEK', 5)">+5s</div>
+            <div class="btn" id="loop-vis_video" onclick="toggleLoopEx('vis_video')">DNG</div>
+        </div>
+        <div style="margin-top:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:9px;"><span id="v-current">00:00</span><span id="v-total">00:00</span></div>
+            <div class="hzm-progress" onclick="seekVideo(event)"><div class="hzm-progress-fill" id="v-bar"></div></div>
+        </div>
+        <div style="margin-top:10px; padding:6px; background:rgba(0,0,0,0.2); border-radius:4px;" class="v-control">
+            <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--accent); margin-bottom:4px;">
+                <span>PROJEKSİYON PARLAKLIĞI</span><span id="br-val">100%</span>
+            </div>
+            <input type="range" class="hzm-range" min="0" max="100" value="100" oninput="changeBrightness(this.value)">
+        </div>
+    </div>
+    <div class="panel" style="grid-area: hzm; align-items:center; justify-content:center;"><span class="hzm-logo">HZM STUDIO COMMAND CENTER</span></div>
+</div>
+
+<script>
+    const bc = new BroadcastChannel('hzm_toren_channel');
+    let activeChannel = 'vis_video';
+    const channels = { 
+        vis_a: { active: false, label: 'KANAL A', loop: false }, 
+        vis_b: { active: false, label: 'KANAL B', loop: false }, 
+        vis_c: { active: false, label: 'KANAL C', loop: false }, 
+        vis_video: { active: false, label: 'VİDEO', loop: false }, 
+        vis_aux: { active: false, label: 'BAĞIMSIZ', loop: false } 
+    };
+
+    let inputBuffer = ""; 
+    let inputTimer = null; 
+
+    // SUNUM DEĞİŞKENLERİ
+    window.presentationImages = [];
+    window.currentSlideIndex = 0;
+
+    function initVisualizers() {
+        Object.keys(channels).forEach(id => {
+            const c = document.getElementById(id); if(!c) return;
+            c.innerHTML = '';
+            for(let i=0; i<30; i++) { 
+                let b = document.createElement('div'); b.className = 'bar'; c.appendChild(b); 
+            }
+        });
+    }
+
+    setInterval(() => {
+        Object.keys(channels).forEach(id => {
+            const bars = document.querySelectorAll(`#${id} .bar`);
+            bars.forEach(bar => {
+                bar.style.height = channels[id].active ? (Math.random()*85+10)+"%" : "5%";
+            });
+        });
+    }, 80);
+
+    function refreshStatusLights() {
+        Object.keys(channels).forEach(visId => {
+            const led = document.getElementById('led-' + visId);
+            if (led) led.classList.toggle('green', channels[visId].active);
+        });
+    }
+
+    // --- TEKİL KLAVYE SİSTEMİ ---
+    window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        const key = e.key;
+
+        // 1. Mod Değiştirme (Shift + Key)
+        if (e.shiftKey) {
+            const modKey = key.toUpperCase();
+            const modMap = { 'A': 'vis_a', 'B': 'vis_b', 'C': 'vis_c', 'V': 'vis_video', 'S': 'vis_aux' };
+            if (modMap[modKey]) {
+                e.preventDefault();
+                setMod(modMap[modKey]);
+            }
+            return;
+        }
+
+        // 2. Parlaklık (Yukarı/Aşağı Ok)
+        if (key === 'ArrowUp' || key === 'ArrowDown') {
+            e.preventDefault();
+            const dimmerInput = document.querySelector('.v-control .hzm-range') || document.querySelector('.hzm-range'); 
+            if (dimmerInput) {
+                let currentVal = parseInt(dimmerInput.value);
+                currentVal = (key === 'ArrowUp') ? Math.min(100, currentVal + 2) : Math.max(0, currentVal - 2);
+                dimmerInput.value = currentVal;
+                changeBrightness(currentVal);
+            }
+            return;
+        }
+
+        // 3. İleri / Geri Sarma (Sağ/Sol Ok - Video İçin)
+        if (key === 'ArrowLeft' || key === 'ArrowRight') {
+            e.preventDefault();
+            const seekVal = (key === 'ArrowRight') ? 5 : -5;
+            bc.postMessage({ action: 'CMD_EX', channel: 'vis_video', command: 'SEEK', value: seekVal });
+            return;
+        }
+
+        // 4. Play/Stop (Boşluk)
+        if (key === ' ') { 
+            e.preventDefault(); 
+            const act = channels[activeChannel].active ? 'stop' : 'play'; 
+            const btn = document.getElementById(`${act}-${activeChannel}`);
+            if(btn) btn.click();
+            return;
+        }
+
+        // 5. Slayt Kontrolü (Logitech R400 ve Slayt Kumandaları İçin)
+        if (key === 'PageDown') {
+            e.preventDefault();
+            if (window.presentationImages && window.currentSlideIndex < window.presentationImages.length - 1) {
+                window.currentSlideIndex++;
+                sendSlideToScreen();
+            }
+            return;
+        }
+        if (key === 'PageUp') {
+            e.preventDefault();
+            if (window.presentationImages && window.currentSlideIndex > 0) {
+                window.currentSlideIndex--;
+                sendSlideToScreen();
+            }
+            return;
+        }
+        // Ekran Karartma (Blackout) - Kumandadaki B veya Nokta tuşu
+        if (key === '.' || key === 'b' || key === 'B') {
+            e.preventDefault();
+            bc.postMessage({ action: 'STOP', type: 'image', channel: 'vis_video' });
+            return;
+        }
+
+        // 6. Hızlı Seçim (Rakamlar)
+        if (!isNaN(key) && key !== ' ') {
+            inputBuffer += key; clearTimeout(inputTimer);
+            inputTimer = setTimeout(() => {
+                const idx = parseInt(inputBuffer) - 1;
+                if (e.ctrlKey) {
+                    const auxItems = document.querySelectorAll('#aux-list .flow-item');
+                    if (auxItems[idx]) auxItems[idx].click(); 
+                } else if (e.altKey) {
+                    const photos = document.querySelectorAll('#image-list .grid-item');
+                    if (photos[idx]) photos[idx].click();
+                } else {
+                    const videos = document.querySelectorAll('#video-list .grid-item');
+                    if (videos[idx]) videos[idx].click();
+                }
+                inputBuffer = ""; 
+            }, 250);
+        }
+    });
+
+    // PPTX Kumanda Slayt Gönderici Fonksiyonu
+    function sendSlideToScreen() {
+        if(!window.presentationImages || window.presentationImages.length === 0) return;
+        const filename = window.presentationImages[window.currentSlideIndex];
+        const path = 'static/images/' + filename;
+        
+        bc.postMessage({ action: 'LOAD', type: 'image', src: path, channel: 'vis_video' });
+        setTimeout(() => {
+            bc.postMessage({ action: 'PLAY', channel: 'vis_video', type: 'image' });
+        }, 100);
+
+        // Panelde aktif olanı işaretle
+        document.querySelectorAll('#image-list .grid-item').forEach(i => i.classList.remove('active'));
+        const items = document.querySelectorAll('#image-list .grid-item');
+        if(items[window.currentSlideIndex]) items[window.currentSlideIndex].classList.add('active');
+    }
+
+    function changeBrightness(v) { 
+        const display = document.getElementById('br-val');
+        if(display) display.innerText = v + "%"; 
+        bc.postMessage({
+            action: 'CMD_EX', 
+            channel: 'GLOBAL', 
+            command: 'BRIGHTNESS', 
+            value: parseFloat(v) / 100 
+        });
+    }
+
+    function selectMedia(type, src, channel, auto, el) {
+        // Tıklanan resmin sırasını kumandayla senkronize et
+        if (type === 'image') {
+            const filename = src.split('/').pop();
+            window.currentSlideIndex = window.presentationImages.indexOf(filename);
+        }
+
+        bc.postMessage({ action: 'LOAD', type, src, channel });
+        if(el) { 
+            el.parentElement.querySelectorAll('.grid-item, .flow-item').forEach(i => i.classList.remove('active')); 
+            el.classList.add('active'); 
+        }
+        const label = document.getElementById('label-' + channel);
+        if(label) label.innerText = src.split('/').pop().toUpperCase();
+
+        if (channel === 'vis_video' || (channel === 'vis_aux' && activeChannel !== 'vis_aux')) {
+            setTimeout(() => {
+                const playBtn = document.getElementById(`play-${channel}`);
+                if(playBtn) chControl(playBtn, channel, type, 'PLAY');
+            }, 100);
+        } else {
+            channels[channel].active = false; refreshStatusLights();
+        }
+    }
+
+    function chControl(btn, visId, type, action) {
+        const isPlay = action === 'PLAY';
+        btn.parentElement.querySelectorAll('.btn').forEach(b => { if(!b.id.includes('loop')) b.classList.remove('active'); });
+        btn.classList.add('active');
+        channels[visId].active = isPlay;
+        bc.postMessage({ action: (action === 'STOP' ? 'PAUSE' : action), channel: visId, type });
+        refreshStatusLights();
+    }
+
+    function setMod(chan) {
+        activeChannel = chan;
+        document.getElementById('mod-status').innerText = `MOD: ${channels[chan].label}`;
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('panel-focus'));
+        const panelEl = document.getElementById('led-' + chan)?.closest('.panel') || document.getElementById(chan)?.closest('.panel');
+        if(panelEl) panelEl.classList.add('panel-focus');
+    }
+
+    function sendExCmd(chan, cmd, val) { bc.postMessage({ action: 'CMD_EX', channel: chan, command: cmd, value: val }); }
+
+    function toggleLoopEx(chan) {
+        const btn = document.getElementById('loop-' + chan);
+        channels[chan].loop = !channels[chan].loop;
+        btn.classList.toggle('active', channels[chan].loop);
+        bc.postMessage({ action: 'CMD_EX', channel: chan, command: 'LOOP', value: channels[chan].loop });
+    }
+
+    function toggleAcc(id) { document.getElementById(id).classList.toggle('show'); }
+
+    // API'den Medyaları Çekme ve Dosya Yükleme (PPTX) Fonksiyonları
+    async function loadMedia() {
+        try {
+            const res = await fetch('/api/media'); const data = await res.json();
+            const render = (id, files, type, path, chan, isGrid) => {
+                const el = document.getElementById(id); if(!el) return;
+                
+                // Doğal ve sayısal olarak sıralama (1, 2, 10, 11 gibi)
+                files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+                // Slaytları kumanda kontrolü için hafızaya al
+                if (type === 'image') {
+                    window.presentationImages = [...files];
+                }
+
+                el.innerHTML = files.map(f => `
+                    <div class="${isGrid ? 'grid-item' : 'flow-item'}" onclick="selectMedia('${type}', '${path}/${f}', '${chan}', false, this)">
+                        <span>${isGrid ? f.toUpperCase() : f}</span>
+                    </div>`).join('');
+            };
+            
+            render('video-list', data.videos, 'video', 'static/videos', 'vis_video', true);
+            render('image-list', data.images, 'image', 'static/images', 'vis_video', true);
+            render('acc-a', data.audios, 'audio', 'static/audios', 'vis_a', false);
+            render('acc-b', data.audios, 'audio', 'static/audios', 'vis_b', false);
+            render('acc-c', data.audios, 'audio', 'static/audios', 'vis_c', false);
+            render('aux-list', data.audios, 'audio', 'static/audios', 'vis_aux', false);
+        } catch (e) {}
+    }
+
+    async function uploadPPTX() {
+        const fileInput = document.getElementById('pptx-upload');
+        const statusText = document.getElementById('upload-status');
+        
+        if (!fileInput.files.length) return;
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        statusText.style.color = "var(--text)";
+        statusText.innerText = "Slaytlar ayrıştırılıyor...";
+
+        try {
+            const res = await fetch('/api/upload_pptx', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                statusText.style.color = "var(--led-on)";
+                statusText.innerText = "Yüklendi!";
+                loadMedia(); 
+            } else {
+                statusText.style.color = "#ff4757";
+                statusText.innerText = "Hata!";
+            }
+        } catch (e) {
+            statusText.style.color = "#ff4757";
+            statusText.innerText = "Bağlantı Hatası!";
+        }
+        
+        fileInput.value = ""; 
+        setTimeout(() => { statusText.innerText = ""; }, 5000);
+    }
+
+    function fmt(s) { 
+        let h=Math.floor(s/3600), m=Math.floor((s%3600)/60).toString().padStart(2,'0'), sec=Math.floor(s%60).toString().padStart(2,'0'); 
+        return h > 0 ? `${h}:${m}:${sec}` : `${m}:${sec}`;
+    }
+
+    bc.onmessage = (ev) => { 
+        if(ev.data.action === 'V_STAT') { 
+            const vBar = document.getElementById('v-bar');
+            if(vBar) vBar.style.width = (ev.data.p*100)+"%"; 
+            document.getElementById('v-current').innerText = fmt(ev.data.c); 
+            document.getElementById('v-total').innerText = fmt(ev.data.t); 
+        } 
+    };
+
+    let t_s = 0, t_i = null;
+    function timerControl(act) {
+        const display = document.getElementById('main-timer');
+        if (act === 'START' && !t_i) {
+            t_i = setInterval(() => { t_s++; display.innerText = fmt(t_s).length < 6 ? "00:"+fmt(t_s) : fmt(t_s); }, 1000);
+        }
+    }
+
+    function addFlowItem() { 
+        const inp = document.getElementById('flow-input'); if(!inp.value) return;
+        const cont = document.getElementById('flow-container');
+        const div = document.createElement('div');
+        div.className = 'flow-item';
+        div.innerHTML = `<span>${cont.children.length + 1}. ${inp.value.toUpperCase()}</span>`;
+        div.onclick = () => div.classList.toggle('active');
+        cont.appendChild(div);
+        inp.value = "";
+    }
+
+    function seekVideo(e) {
+        const bar = document.querySelector('.hzm-progress');
+        const rect = bar.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        bc.postMessage({ action: 'CMD_EX', channel: 'vis_video', command: 'SEEK_P', value: pos });
+    }
+
+    setInterval(() => { document.getElementById('main-clock').innerText = new Date().toTimeString().split(' ')[0]; }, 1000);
+    window.onload = () => { loadMedia(); initVisualizers(); setMod('vis_video'); };
+</script>
+</body>
+</html>
